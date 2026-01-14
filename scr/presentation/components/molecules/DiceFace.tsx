@@ -1,17 +1,18 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { DiceValue } from '../../../domain/models/Dice';
 import { DiceService } from '../../../domain/services/DiceService';
-import { DiceDot } from '../atoms/DiceDot';
 
 /**
- * Molécula: DiceFace (Versión Mejorada)
+ * Molécula: DiceFace (D20)
  * 
- * Mejoras:
- * - Sombras más pronunciadas
- * - Bordes más definidos
- * - Colores más vibrantes
- * - Mejor contraste
+ * Representa un dado de 20 caras (icosaedro).
+ * Muestra el número en grande con colores según el valor.
+ * 
+ * Diseño:
+ * - Forma de diamante/icosaedro estilizado
+ * - Número grande centrado
+ * - Colores que indican la calidad del resultado
  */
 
 interface DiceFaceProps {
@@ -22,69 +23,84 @@ interface DiceFaceProps {
 
 export function DiceFace({ 
   value, 
-  size = 150,
+  size = 200,
   isRolling = false,
 }: DiceFaceProps) {
-  const dotPositions = DiceService.getDotPositions(value);
-  const dotSize = size * 0.15;
-  const cellSize = size / 3;
+  const backgroundColor = DiceService.getDiceColor(value);
+  const textColor = DiceService.getTextColor(value);
+  const fontSize = size * 0.35; // 35% del tamaño del dado
 
   return (
     <View 
       style={{
         width: size,
         height: size,
-        backgroundColor: '#ffffff',
+        backgroundColor: isRolling ? '#0ea5e9' : backgroundColor,
+        // Forma de diamante (icosaedro estilizado)
+        transform: [{ rotate: '45deg' }],
         borderRadius: size * 0.15,
-        borderWidth: 2,
-        borderColor: isRolling ? '#0ea5e9' : '#e5e7eb',
-        // Sombra iOS
+        borderWidth: 3,
+        borderColor: isRolling ? '#0284c7' : 'rgba(0,0,0,0.2)',
+        // Sombras
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.3,
         shadowRadius: 12,
-        // Sombra Android
         elevation: 12,
-        padding: size * 0.1,
+        // Centrado
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
-      {/* Grid 3x3 para posicionar los puntos */}
-      <View style={{ flex: 1 }}>
-        {[0, 1, 2].map((row) => (
-          <View 
-            key={row} 
+      {/* Contenedor interno (rotado de vuelta para que el texto esté derecho) */}
+      <View
+        style={{
+          transform: [{ rotate: '-45deg' }],
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        {/* Número principal */}
+        <Text
+          style={{
+            fontSize: fontSize,
+            fontWeight: '900',
+            color: isRolling ? '#ffffff' : textColor,
+            textShadowColor: 'rgba(0, 0, 0, 0.3)',
+            textShadowOffset: { width: 0, height: 2 },
+            textShadowRadius: 4,
+          }}
+        >
+          {value}
+        </Text>
+
+        {/* Indicador de crítico */}
+        {value === 20 && !isRolling && (
+          <Text
             style={{
-              flex: 1,
-              flexDirection: 'row',
+              fontSize: size * 0.08,
+              fontWeight: '700',
+              color: '#92400e',
+              marginTop: -5,
             }}
           >
-            {[0, 1, 2].map((col) => {
-              const hasDot = dotPositions.some(
-                ([r, c]) => r === row && c === col
-              );
+            ¡CRÍTICO!
+          </Text>
+        )}
 
-              return (
-                <View
-                  key={`${row}-${col}`}
-                  style={{
-                    flex: 1,
-                    width: cellSize,
-                    height: cellSize,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  {hasDot && (
-                    <DiceDot 
-                      size={dotSize} 
-                      color={isRolling ? '#0ea5e9' : '#1f2937'}
-                    />
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        ))}
+        {/* Indicador de fallo */}
+        {value === 1 && !isRolling && (
+          <Text
+            style={{
+              fontSize: size * 0.08,
+              fontWeight: '700',
+              color: '#ffffff',
+              marginTop: -5,
+            }}
+          >
+            FALLO
+          </Text>
+        )}
       </View>
 
       {/* Efecto de brillo cuando está rodando */}
@@ -96,12 +112,52 @@ export function DiceFace({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(14, 165, 233, 0.1)',
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
             borderRadius: size * 0.15,
-            borderWidth: 3,
-            borderColor: '#0ea5e9',
           }}
         />
+      )}
+
+      {/* Líneas decorativas (simulan facetas del icosaedro) */}
+      {!isRolling && (
+        <>
+          <View
+            style={{
+              position: 'absolute',
+              top: '20%',
+              width: '60%',
+              height: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              bottom: '20%',
+              width: '60%',
+              height: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              left: '20%',
+              height: '60%',
+              width: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              right: '20%',
+              height: '60%',
+              width: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            }}
+          />
+        </>
       )}
     </View>
   );

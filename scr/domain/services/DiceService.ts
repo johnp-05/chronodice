@@ -1,28 +1,25 @@
 import { DiceValue, DiceState, DICE_CONSTANTS } from '../models/Dice';
 
 /**
- * Servicio de dominio para la lógica del dado
+ * Servicio de dominio para la lógica del dado D20
  * 
  * Maneja toda la lógica relacionada con el estado y comportamiento
- * del dado, incluyendo generación de números aleatorios y validaciones.
+ * del dado de 20 caras.
  */
 export class DiceService {
   /**
-   * Genera un valor aleatorio válido para el dado (1-6)
-   * 
-   * Utiliza Math.random() para generar un número aleatorio
-   * y lo mapea al rango [1, 6].
+   * Genera un valor aleatorio válido para el dado D20 (1-20)
    * 
    * @returns Un valor válido del dado
    * 
    * @example
-   * const value = DiceService.rollDice(); // 1, 2, 3, 4, 5, o 6
+   * const value = DiceService.rollDice(); // 1-20
    */
   public static rollDice(): DiceValue {
     const min = DICE_CONSTANTS.MIN_VALUE;
     const max = DICE_CONSTANTS.MAX_VALUE;
     
-    // Genera número entre 1 y 6 (inclusive)
+    // Genera número entre 1 y 20 (inclusive)
     const randomValue = Math.floor(Math.random() * (max - min + 1)) + min;
     
     return randomValue as DiceValue;
@@ -32,7 +29,7 @@ export class DiceService {
    * Valida si un número es un valor válido para el dado
    * 
    * @param value - Valor a validar
-   * @returns true si el valor está entre 1 y 6
+   * @returns true si el valor está entre 1 y 20
    */
   public static isValidDiceValue(value: number): value is DiceValue {
     return (
@@ -84,24 +81,30 @@ export class DiceService {
   }
 
   /**
-   * Obtiene la configuración de puntos para cada cara del dado
+   * Determina el color del dado según el valor
    * 
-   * Retorna las posiciones de los puntos en cada cara (1-6)
-   * en un sistema de coordenadas 3x3.
-   * 
-   * @param value - Valor de la cara del dado
-   * @returns Array de posiciones [fila, columna] de los puntos
+   * - 20: Oro (crítico perfecto)
+   * - 1: Rojo (fallo crítico)
+   * - 15-19: Verde (éxito alto)
+   * - 10-14: Azul (éxito medio)
+   * - 2-9: Gris (bajo)
    */
-  public static getDotPositions(value: DiceValue): [number, number][] {
-    const positions: Record<DiceValue, [number, number][]> = {
-      1: [[1, 1]], // Centro
-      2: [[0, 0], [2, 2]], // Diagonal
-      3: [[0, 0], [1, 1], [2, 2]], // Diagonal con centro
-      4: [[0, 0], [0, 2], [2, 0], [2, 2]], // Esquinas
-      5: [[0, 0], [0, 2], [1, 1], [2, 0], [2, 2]], // Esquinas + centro
-      6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]], // Dos columnas
-    };
+  public static getDiceColor(value: DiceValue): string {
+    if (value === 20) return '#fbbf24'; // Oro
+    if (value === 1) return '#ef4444'; // Rojo
+    if (value >= 15) return '#10b981'; // Verde
+    if (value >= 10) return '#3b82f6'; // Azul
+    return '#6b7280'; // Gris
+  }
 
-    return positions[value];
+  /**
+   * Obtiene el color del texto según el valor
+   */
+  public static getTextColor(value: DiceValue): string {
+    if (value === 20) return '#92400e'; // Dorado oscuro
+    if (value === 1) return '#ffffff'; // Blanco
+    if (value >= 15) return '#ffffff'; // Blanco
+    if (value >= 10) return '#ffffff'; // Blanco
+    return '#ffffff'; // Blanco
   }
 }

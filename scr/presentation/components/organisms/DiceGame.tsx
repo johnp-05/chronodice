@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Animated, Vibration, TouchableOpacity } from 'react-native';
-import { Dices, Smartphone } from 'lucide-react-native';
+import { Dices, Smartphone, Trophy, Skull } from 'lucide-react-native';
 import { Container } from '../atoms/Container';
 import { Text } from '../atoms/Text';
 import { DiceFace } from '../molecules/DiceFace';
@@ -10,29 +10,26 @@ import { DiceService } from '../../../domain/services/DiceService';
 import { useShakeDetection } from '../../../infrastructure/hooks/useShakeDetection';
 
 /**
- * Organismo: DiceGame (Versión Mejorada)
+ * Organismo: DiceGame (D20 - Dado de 20 caras)
  * 
- * Mejoras:
- * - Valores intermedios durante la animación
- * - Modo táctil alternativo
- * - Mejor feedback visual
- * - Colores más vibrantes
+ * Funcionalidades:
+ * - Dado de 20 caras (D20)
+ * - Colores según resultado (20=oro, 1=rojo, etc.)
+ * - Indicadores de crítico y fallo
+ * - Animación de rotación 3D
  */
 
 export function DiceGame() {
-  // Estado del dado
   const [diceState, setDiceState] = useState<DiceState>(
     DiceService.createInitialState()
   );
 
-  // Valor mostrado durante la animación
   const [displayValue, setDisplayValue] = useState<DiceValue>(1);
 
-  // Animación de escala (bounce effect)
+  // Animaciones
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rotationAnim = useRef(new Animated.Value(0)).current;
 
-  // Hook de detección de sacudidas
   const { accelerometerData, magnitude, isAvailable } = useShakeDetection(
     {
       threshold: DICE_CONSTANTS.DEFAULT_SHAKE_THRESHOLD,
@@ -42,99 +39,114 @@ export function DiceGame() {
   );
 
   /**
-   * Efecto que cambia valores aleatorios durante la animación
+   * Valores aleatorios durante animación
    */
   useEffect(() => {
     if (diceState.isRolling) {
       const interval = setInterval(() => {
         setDisplayValue(DiceService.rollDice());
-      }, 80); // Cambia cada 80ms
+      }, 60); // Más rápido para D20
 
       return () => clearInterval(interval);
     } else {
-      // Cuando termina, muestra el valor final
       setDisplayValue(diceState.currentValue);
     }
   }, [diceState.isRolling, diceState.currentValue]);
 
-  /**
-   * Maneja la detección de sacudida
-   */
   function handleShake() {
     if (diceState.isRolling) return;
     rollDice();
   }
 
-  /**
-   * Maneja el toque manual
-   */
   function handleTap() {
     if (diceState.isRolling) return;
     rollDice();
   }
 
   /**
-   * Lanza el dado con animación mejorada
+   * Lanza el dado con animación 3D
    */
   function rollDice() {
-    // Feedback háptico
+    // Vibración especial para críticos
     Vibration.vibrate(100);
 
-    // Actualiza estado a "rodando"
     setDiceState(DiceService.createRolledState(diceState));
 
-    // Animación combinada: rotación + escala
     rotationAnim.setValue(0);
     scaleAnim.setValue(1);
 
     Animated.parallel([
-      // Rotación rápida
+      // 3 rotaciones completas (más drama)
       Animated.timing(rotationAnim, {
-        toValue: 2, // 2 rotaciones completas
+        toValue: 3,
         duration: DICE_CONSTANTS.ROLL_ANIMATION_DURATION,
         useNativeDriver: true,
       }),
-      // Efecto bounce
+      // Bounce más pronunciado
       Animated.sequence([
         Animated.timing(scaleAnim, {
-          toValue: 1.1,
+          toValue: 1.15,
           duration: DICE_CONSTANTS.ROLL_ANIMATION_DURATION / 2,
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          friction: 3,
-          tension: 40,
+          friction: 4,
+          tension: 50,
           useNativeDriver: true,
         }),
       ]),
     ]).start(() => {
-      // Al terminar, marca como no rodando
-      setDiceState((prev) => DiceService.finishRolling(prev));
+      setDiceState((prev) => {
+        const newState = DiceService.finishRolling(prev);
+        
+        // Vibración extra para críticos
+        if (newState.currentValue === 20) {
+          Vibration.vibrate([0, 50, 50, 50]); // Triple vibración
+        } else if (newState.currentValue === 1) {
+          Vibration.vibrate([0, 200]); // Vibración larga
+        }
+        
+        return newState;
+      });
     });
   }
 
+  /**
+   * Mensaje según el resultado
+   */
+  const getResultMessage = (value: DiceValue): string => {
+    if (value === 20) return '¡Crítico Perfecto!';
+    if (value === 1) return '¡Fallo Crítico!';
+    if (value >= 15) return 'Excelente';
+    if (value >= 10) return 'Éxito';
+    return 'Bajo';
+  };
+
   return (
-    <Container variant="default" className="bg-gradient-to-b from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header con diseño mejorado */}
+    <Container variant="default" className="bg-gradient-to-b from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      {/* Header */}
       <View className="pt-16 pb-6 px-6">
         <View className="flex-row items-center justify-center gap-3 mb-3">
-          <View className="bg-primary-500 p-3 rounded-full">
+          <View className="bg-purple-600 p-3 rounded-full">
             <Dices size={32} color="#ffffff" />
           </View>
         </View>
-        <Text variant="h1" weight="bold" className="text-center text-gray-800 dark:text-white mb-2">
-          Chrono Dice
+        <Text variant="h1" weight="bold" className="text-center text-gray-800 dark:text-white mb-1">
+          Chrono Dice D20
+        </Text>
+        <Text variant="caption" className="text-center text-purple-600 dark:text-purple-400 mb-2">
+          Dado de 20 caras
         </Text>
         <Text 
           variant="body" 
           className="text-center text-gray-600 dark:text-gray-300"
         >
-          Agita tu dispositivo o toca el dado
+          Agita o toca para lanzar
         </Text>
       </View>
 
-      {/* Área principal del dado */}
+      {/* Área del dado */}
       <Container variant="centered" className="flex-1 px-6">
         <TouchableOpacity 
           onPress={handleTap}
@@ -146,9 +158,15 @@ export function DiceGame() {
               transform: [
                 { scale: scaleAnim },
                 {
-                  rotate: rotationAnim.interpolate({
+                  rotateY: rotationAnim.interpolate({
                     inputRange: [0, 1],
                     outputRange: ['0deg', '360deg'],
+                  }),
+                },
+                {
+                  rotateZ: rotationAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '180deg'],
                   }),
                 },
               ],
@@ -156,48 +174,86 @@ export function DiceGame() {
           >
             <DiceFace
               value={displayValue}
-              size={200}
+              size={220}
               isRolling={diceState.isRolling}
             />
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Instrucciones visuales mejoradas */}
+        {/* Instrucciones e info */}
         {!diceState.isRolling && (
-          <View className="mt-10 items-center">
-            <View className="flex-row items-center gap-2 mb-3 bg-white dark:bg-gray-800 px-6 py-3 rounded-full shadow-md">
-              <Smartphone size={20} color="#0ea5e9" />
-              <Text variant="body" weight="medium" className="text-primary-600">
+          <View className="mt-12 items-center">
+            <View className="flex-row items-center gap-2 mb-4 bg-white dark:bg-gray-800 px-6 py-3 rounded-full shadow-md">
+              <Smartphone size={20} color="#9333ea" />
+              <Text variant="body" weight="medium" className="text-purple-600">
                 Sacude o toca
               </Text>
             </View>
             
-            <View className="bg-gray-100 dark:bg-gray-700 px-6 py-3 rounded-2xl">
-              <Text variant="h2" weight="bold" className="text-center text-gray-800 dark:text-white">
-                {diceState.currentValue}
+            {/* Tarjeta de resultado */}
+            <View className="bg-white dark:bg-gray-800 px-8 py-4 rounded-2xl shadow-lg">
+              <View className="flex-row items-center justify-center gap-2 mb-2">
+                {diceState.currentValue === 20 && (
+                  <Trophy size={24} color="#fbbf24" />
+                )}
+                {diceState.currentValue === 1 && (
+                  <Skull size={24} color="#ef4444" />
+                )}
+                <Text variant="h1" weight="bold" className="text-center text-gray-800 dark:text-white">
+                  {diceState.currentValue}
+                </Text>
+              </View>
+              <Text variant="body" weight="medium" className="text-center text-gray-600 dark:text-gray-400">
+                {getResultMessage(diceState.currentValue)}
               </Text>
-              <Text variant="caption" className="text-center text-gray-500 dark:text-gray-400 mt-1">
-                Último resultado
+            </View>
+
+            {/* Leyenda de colores */}
+            <View className="mt-6 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
+              <Text variant="caption" className="text-gray-500 dark:text-gray-400 text-center mb-2">
+                Colores del dado
               </Text>
+              <View className="flex-row flex-wrap justify-center gap-2">
+                <View className="flex-row items-center gap-1">
+                  <View className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">20</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <View className="w-3 h-3 rounded-full bg-green-500" />
+                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">15-19</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <View className="w-3 h-3 rounded-full bg-blue-500" />
+                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">10-14</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <View className="w-3 h-3 rounded-full bg-gray-500" />
+                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">2-9</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <View className="w-3 h-3 rounded-full bg-red-500" />
+                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">1</Text>
+                </View>
+              </View>
             </View>
           </View>
         )}
 
-        {/* Indicador de rodando mejorado */}
+        {/* Indicador rodando */}
         {diceState.isRolling && (
-          <View className="mt-10 bg-primary-100 dark:bg-primary-900/30 px-8 py-4 rounded-2xl">
+          <View className="mt-12 bg-purple-100 dark:bg-purple-900/30 px-8 py-4 rounded-2xl">
             <Text 
               variant="h2" 
               weight="bold" 
-              className="text-center text-primary-600 dark:text-primary-400"
+              className="text-center text-purple-600 dark:text-purple-400"
             >
-              Lanzando...
+              Lanzando D20...
             </Text>
           </View>
         )}
       </Container>
 
-      {/* Panel de información del sensor con diseño mejorado */}
+      {/* Panel inferior */}
       <View className="px-6 pb-8">
         <SensorStatus
           isAvailable={isAvailable}
@@ -206,22 +262,21 @@ export function DiceGame() {
           detailed={false}
         />
 
-        {/* Información en tarjetas */}
         <View className="mt-4 flex-row gap-3">
           <View className="flex-1 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
             <Text variant="caption" className="text-gray-500 dark:text-gray-400 text-center mb-1">
-              Umbral
+              Rango
             </Text>
             <Text variant="body" weight="bold" className="text-center text-gray-800 dark:text-white">
-              {DICE_CONSTANTS.DEFAULT_SHAKE_THRESHOLD.toFixed(1)} g
+              1 - 20
             </Text>
           </View>
           
           <View className="flex-1 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
             <Text variant="caption" className="text-gray-500 dark:text-gray-400 text-center mb-1">
-              Resultado
+              Último
             </Text>
-            <Text variant="body" weight="bold" className="text-center text-primary-600">
+            <Text variant="body" weight="bold" className="text-center text-purple-600">
               {diceState.currentValue}
             </Text>
           </View>
