@@ -1,22 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Animated, Vibration, TouchableOpacity } from 'react-native';
-import { Dices, Smartphone, Trophy, Skull } from 'lucide-react-native';
+import { View, Animated, Vibration, TouchableOpacity, Switch } from 'react-native';
+import { Dices, Smartphone, Trophy, Skull, Box } from 'lucide-react-native';
 import { Container } from '../atoms/Container';
 import { Text } from '../atoms/Text';
 import { DiceFace } from '../molecules/DiceFace';
+import { Dice3DRenderer } from '../molecules/Dice3DRenderer';
 import { SensorStatus } from '../molecules/SensorStatus';
 import { DiceValue, DiceState, DICE_CONSTANTS } from '../../../domain/models/Dice';
 import { DiceService } from '../../../domain/services/DiceService';
 import { useShakeDetection } from '../../../infrastructure/hooks/useShakeDetection';
 
 /**
- * Organismo: DiceGame (D20 - Dado de 20 caras)
+ * Organismo: DiceGame
  * 
- * Funcionalidades:
- * - Dado de 20 caras (D20)
- * - Colores según resultado (20=oro, 1=rojo, etc.)
- * - Indicadores de crítico y fallo
- * - Animación de rotación 3D
+ * Versión mejorada con opción de dado 2D o 3D
  */
 
 export function DiceGame() {
@@ -25,8 +22,9 @@ export function DiceGame() {
   );
 
   const [displayValue, setDisplayValue] = useState<DiceValue>(1);
+  const [use3D, setUse3D] = useState(true); // Toggle 2D/3D
 
-  // Animaciones
+  // Animaciones (solo para 2D)
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rotationAnim = useRef(new Animated.Value(0)).current;
 
@@ -39,19 +37,19 @@ export function DiceGame() {
   );
 
   /**
-   * Valores aleatorios durante animación
+   * Valores aleatorios durante animación (solo para 2D)
    */
   useEffect(() => {
-    if (diceState.isRolling) {
+    if (diceState.isRolling && !use3D) {
       const interval = setInterval(() => {
         setDisplayValue(DiceService.rollDice());
-      }, 60); // Más rápido para D20
+      }, 60);
 
       return () => clearInterval(interval);
     } else {
       setDisplayValue(diceState.currentValue);
     }
-  }, [diceState.isRolling, diceState.currentValue]);
+  }, [diceState.isRolling, diceState.currentValue, use3D]);
 
   function handleShake() {
     if (diceState.isRolling) return;
@@ -64,51 +62,60 @@ export function DiceGame() {
   }
 
   /**
-   * Lanza el dado con animación 3D
+   * Lanza el dado con animación
    */
   function rollDice() {
-    // Vibración especial para críticos
     Vibration.vibrate(100);
 
     setDiceState(DiceService.createRolledState(diceState));
 
-    rotationAnim.setValue(0);
-    scaleAnim.setValue(1);
+    // Animaciones solo para 2D
+    if (!use3D) {
+      rotationAnim.setValue(0);
+      scaleAnim.setValue(1);
 
-    Animated.parallel([
-      // 3 rotaciones completas (más drama)
-      Animated.timing(rotationAnim, {
-        toValue: 3,
-        duration: DICE_CONSTANTS.ROLL_ANIMATION_DURATION,
-        useNativeDriver: true,
-      }),
-      // Bounce más pronunciado
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.15,
-          duration: DICE_CONSTANTS.ROLL_ANIMATION_DURATION / 2,
+      Animated.parallel([
+        Animated.timing(rotationAnim, {
+          toValue: 3,
+          duration: DICE_CONSTANTS.ROLL_ANIMATION_DURATION,
           useNativeDriver: true,
         }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 4,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start(() => {
-      setDiceState((prev) => {
-        const newState = DiceService.finishRolling(prev);
-        
-        // Vibración extra para críticos
-        if (newState.currentValue === 20) {
-          Vibration.vibrate([0, 50, 50, 50]); // Triple vibración
-        } else if (newState.currentValue === 1) {
-          Vibration.vibrate([0, 200]); // Vibración larga
-        }
-        
-        return newState;
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.15,
+            duration: DICE_CONSTANTS.ROLL_ANIMATION_DURATION / 2,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 4,
+            tension: 50,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(() => {
+        finishRoll();
       });
+    } else {
+      // Para 3D, solo esperamos la duración
+      setTimeout(() => {
+        finishRoll();
+      }, DICE_CONSTANTS.ROLL_ANIMATION_DURATION);
+    }
+  }
+
+  function finishRoll() {
+    setDiceState((prev) => {
+      const newState = DiceService.finishRolling(prev);
+      
+      // Vibración extra para críticos
+      if (newState.currentValue === 20) {
+        Vibration.vibrate([0, 50, 50, 50]);
+      } else if (newState.currentValue === 1) {
+        Vibration.vibrate([0, 200]);
+      }
+      
+      return newState;
     });
   }
 
@@ -138,9 +145,30 @@ export function DiceGame() {
         <Text variant="caption" className="text-center text-purple-600 dark:text-purple-400 mb-2">
           Dado de 20 caras
         </Text>
+        
+        {/* Toggle 2D/3D */}
+        <View className="flex-row items-center justify-center gap-3 mt-4">
+          <Text variant="body" className="text-gray-600 dark:text-gray-300">
+            2D
+          </Text>
+          <Switch
+            value={use3D}
+            onValueChange={setUse3D}
+            trackColor={{ false: '#d1d5db', true: '#9333ea' }}
+            thumbColor={use3D ? '#ffffff' : '#f3f4f6'}
+            disabled={diceState.isRolling}
+          />
+          <View className="flex-row items-center gap-1">
+            <Box size={16} color="#9333ea" />
+            <Text variant="body" className="text-purple-600 dark:text-purple-400">
+              3D
+            </Text>
+          </View>
+        </View>
+        
         <Text 
           variant="body" 
-          className="text-center text-gray-600 dark:text-gray-300"
+          className="text-center text-gray-600 dark:text-gray-300 mt-2"
         >
           Agita o toca para lanzar
         </Text>
@@ -153,31 +181,41 @@ export function DiceGame() {
           activeOpacity={0.8}
           disabled={diceState.isRolling}
         >
-          <Animated.View
-            style={{
-              transform: [
-                { scale: scaleAnim },
-                {
-                  rotateY: rotationAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '360deg'],
-                  }),
-                },
-                {
-                  rotateZ: rotationAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '180deg'],
-                  }),
-                },
-              ],
-            }}
-          >
-            <DiceFace
+          {use3D ? (
+            // ========== DADO 3D ==========
+            <Dice3DRenderer
               value={displayValue}
-              size={220}
               isRolling={diceState.isRolling}
+              size={280}
             />
-          </Animated.View>
+          ) : (
+            // ========== DADO 2D ==========
+            <Animated.View
+              style={{
+                transform: [
+                  { scale: scaleAnim },
+                  {
+                    rotateY: rotationAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                  {
+                    rotateZ: rotationAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '180deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <DiceFace
+                value={displayValue}
+                size={220}
+                isRolling={diceState.isRolling}
+              />
+            </Animated.View>
+          )}
         </TouchableOpacity>
 
         {/* Instrucciones e info */}
@@ -208,34 +246,36 @@ export function DiceGame() {
               </Text>
             </View>
 
-            {/* Leyenda de colores */}
-            <View className="mt-6 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
-              <Text variant="caption" className="text-gray-500 dark:text-gray-400 text-center mb-2">
-                Colores del dado
-              </Text>
-              <View className="flex-row flex-wrap justify-center gap-2">
-                <View className="flex-row items-center gap-1">
-                  <View className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">20</Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <View className="w-3 h-3 rounded-full bg-green-500" />
-                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">15-19</Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <View className="w-3 h-3 rounded-full bg-blue-500" />
-                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">10-14</Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <View className="w-3 h-3 rounded-full bg-gray-500" />
-                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">2-9</Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <View className="w-3 h-3 rounded-full bg-red-500" />
-                  <Text variant="caption" className="text-gray-600 dark:text-gray-400">1</Text>
+            {/* Leyenda de colores (solo 2D) */}
+            {!use3D && (
+              <View className="mt-6 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
+                <Text variant="caption" className="text-gray-500 dark:text-gray-400 text-center mb-2">
+                  Colores del dado
+                </Text>
+                <View className="flex-row flex-wrap justify-center gap-2">
+                  <View className="flex-row items-center gap-1">
+                    <View className="w-3 h-3 rounded-full bg-yellow-500" />
+                    <Text variant="caption" className="text-gray-600 dark:text-gray-400">20</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <View className="w-3 h-3 rounded-full bg-green-500" />
+                    <Text variant="caption" className="text-gray-600 dark:text-gray-400">15-19</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <View className="w-3 h-3 rounded-full bg-blue-500" />
+                    <Text variant="caption" className="text-gray-600 dark:text-gray-400">10-14</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <View className="w-3 h-3 rounded-full bg-gray-500" />
+                    <Text variant="caption" className="text-gray-600 dark:text-gray-400">2-9</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <View className="w-3 h-3 rounded-full bg-red-500" />
+                    <Text variant="caption" className="text-gray-600 dark:text-gray-400">1</Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
           </View>
         )}
 
@@ -265,10 +305,10 @@ export function DiceGame() {
         <View className="mt-4 flex-row gap-3">
           <View className="flex-1 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
             <Text variant="caption" className="text-gray-500 dark:text-gray-400 text-center mb-1">
-              Rango
+              Modo
             </Text>
-            <Text variant="body" weight="bold" className="text-center text-gray-800 dark:text-white">
-              1 - 20
+            <Text variant="body" weight="bold" className="text-center text-purple-600">
+              {use3D ? '3D' : '2D'}
             </Text>
           </View>
           
